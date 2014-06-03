@@ -10,6 +10,7 @@ import static android.opengl.GLES20.glClearColor;
 import static android.opengl.GLES20.glDrawArrays;
 import static android.opengl.GLES20.glEnableVertexAttribArray;
 import static android.opengl.GLES20.glGetAttribLocation;
+import static android.opengl.GLES20.glGetUniformLocation;
 import static android.opengl.GLES20.glUniformMatrix4fv;
 import static android.opengl.GLES20.glUseProgram;
 import static android.opengl.GLES20.glVertexAttribPointer;
@@ -67,11 +68,11 @@ public class AirHockeyRenderer implements Renderer {
                 
              // Triangle Fan
                 0f,    0f,   1f,   1f,   1f,         
-             -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,            
-              0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
-              0.5f,  0.5f, 0.7f, 0.7f, 0.7f,
-             -0.5f,  0.5f, 0.7f, 0.7f, 0.7f,
-             -0.5f, -0.5f, 0.7f, 0.7f, 0.7f,
+             -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,            
+              0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
+              0.5f,  0.8f, 0.7f, 0.7f, 0.7f,
+             -0.5f,  0.8f, 0.7f, 0.7f, 0.7f,
+             -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
 
              // Line 1
              -0.5f, 0f, 1f, 0f, 0f,
@@ -96,7 +97,7 @@ public class AirHockeyRenderer implements Renderer {
     @Override
     public void onSurfaceCreated(GL10 gl, EGLConfig config) {
         
-        glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         
         String vertexShaderSource = TextResourceReader.readTextFileFromResource(m_context, R.raw.svs);
         String fragmentShaderSource = TextResourceReader.readTextFileFromResource(m_context, R.raw.sfs);
@@ -112,7 +113,7 @@ public class AirHockeyRenderer implements Renderer {
         
         glUseProgram(m_program);
         
-        m_uMatrixLocation = glGetAttribLocation(m_program, U_MATRIX);        
+        m_uMatrixLocation = glGetUniformLocation(m_program, U_MATRIX);        
         m_aPositionLocation = glGetAttribLocation(m_program, A_POSITION);   
         m_aColorLocation = glGetAttribLocation(m_program, A_COLOR);
         
@@ -138,11 +139,12 @@ public class AirHockeyRenderer implements Renderer {
         
                 if (width > height) {
                  // Landscape
-                    orthoM(m_projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f);
+                	orthoM(m_projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f);
                 } else {
-                 // Portrait or square
+                 // Portrait or square                    
                     orthoM(m_projectionMatrix, 0, -1f, 1f, -aspectRatio, aspectRatio, -1f, 1f);
-                }      
+                }   
+                
                 
               for ( float f : m_projectionMatrix) {
                   Log.d(TAG, "matrix: " + f);
