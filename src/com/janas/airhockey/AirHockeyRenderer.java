@@ -15,7 +15,7 @@ import static android.opengl.GLES20.glUniformMatrix4fv;
 import static android.opengl.GLES20.glUseProgram;
 import static android.opengl.GLES20.glVertexAttribPointer;
 import static android.opengl.GLES20.glViewport;
-import static android.opengl.Matrix.orthoM;
+import static android.opengl.Matrix.*;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -26,9 +26,9 @@ import javax.microedition.khronos.opengles.GL10;
 
 import android.content.Context;
 import android.opengl.GLSurfaceView.Renderer;
-import android.util.Log;
 
 import com.janas.airhockey.util.LoggerConfig;
+import com.janas.airhockey.util.MatrixHelper;
 import com.janas.airhockey.util.ShaderHelper;
 import com.janas.airhockey.util.TextResourceReader;
 
@@ -36,61 +36,62 @@ public class AirHockeyRenderer implements Renderer {
     
     private static final String TAG = "AirHokeyRenderer";
     
-    private static final int POSITION_COMPONENT_COUNT = 2;
+    private static final int POSITION_COMPONENT_COUNT = 4;	// X Y Z W
     private static final int BYTES_PER_FLOAT = 4;
     private static final String A_POSITION = "a_Position";
     private static final String A_COLOR = "a_Color";
     private static final String U_MATRIX = "u_Matrix";
     private static final int COLOR_COMPONENT_COUNT = 3;
     private static final int STRIDE = (POSITION_COMPONENT_COUNT + COLOR_COMPONENT_COUNT) * BYTES_PER_FLOAT;
-    private final float[] m_projectionMatrix = new float[16];
-    private final FloatBuffer m_vertexData;
-    private final Context m_context;
+    private final float[] mProjectionMatrix = new float[16];
+    private final float[] mModelMatrix = new float[16];
+    private final FloatBuffer mVertexData;
+    private final Context mContext;
     
-    private int m_program;
-    private int m_aPositionLocation;
-    private int m_aColorLocation;
-    private int m_uMatrixLocation;
+    private int mProgram;
+    private int mAPositionLocation;
+    private int mAColorLocation;
+    private int mUMatrixLocation;
     
     
     
     public AirHockeyRenderer(Context context) {
         
-        this.m_context = context;
+        this.mContext = context;
         
         float[] tableVerticesWithTriangles = {                
                 
-                // coordinates order: X, Y, R, G, B
+                // coordinates order: X, Y, Z, W, R, G, B
                 // triangle fan
                 
                 
                 // blended_value = (vertex_0_value * (100% – distance_ratio)) + (vertex_1_value * distance_ratio)
                 
              // Triangle Fan
-                0f,    0f,   1f,   1f,   1f,         
-             -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,            
-              0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
-              0.5f,  0.8f, 0.7f, 0.7f, 0.7f,
-             -0.5f,  0.8f, 0.7f, 0.7f, 0.7f,
-             -0.5f, -0.8f, 0.7f, 0.7f, 0.7f,
+                0f,    0f, 0f, 1.5f,  1f,   1f,   1f,         
+             -0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,            
+              0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,
+              0.5f,  0.8f, 0f, 2f, 0.7f, 0.7f, 0.7f,
+             -0.5f,  0.8f, 0f, 2f, 0.7f, 0.7f, 0.7f,
+             -0.5f, -0.8f, 0f, 1f, 0.7f, 0.7f, 0.7f,
 
              // Line 1
-             -0.5f, 0f, 1f, 0f, 0f,
-              0.5f, 0f, 1f, 0f, 0f,
+             -0.5f, 0f, 0f, 1.5f, 1f, 0f, 0f,
+              0.5f, 0f, 0f, 1.5f, 1f, 0f, 0f,
 
              // Mallets
-             0f, -0.4f, 0f, 0f, 1f,
-             0f,  0.4f, 1f, 0f, 0f
+             0f, -0.4f, 0f, 1.25f, 0f, 0f, 1f,
+             0f,  0.4f, 0f, 1.75f, 1f, 0f, 0f
                 
                 
         };
         
-        m_vertexData = ByteBuffer
+        mVertexData = ByteBuffer
                 .allocateDirect(tableVerticesWithTriangles.length * BYTES_PER_FLOAT)
                 .order(ByteOrder.nativeOrder())
                 .asFloatBuffer();
         
-        m_vertexData.put(tableVerticesWithTriangles);
+        mVertexData.put(tableVerticesWithTriangles);
     }
     
 
@@ -99,33 +100,33 @@ public class AirHockeyRenderer implements Renderer {
         
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
         
-        String vertexShaderSource = TextResourceReader.readTextFileFromResource(m_context, R.raw.svs);
-        String fragmentShaderSource = TextResourceReader.readTextFileFromResource(m_context, R.raw.sfs);
+        String vertexShaderSource = TextResourceReader.readTextFileFromResource(mContext, R.raw.svs);
+        String fragmentShaderSource = TextResourceReader.readTextFileFromResource(mContext, R.raw.sfs);
         
         int vertexShaderId = ShaderHelper.compileVertexShader(vertexShaderSource);
         int fragmentShaderId = ShaderHelper.compileFragmentShader(fragmentShaderSource);
         
-        m_program = ShaderHelper.linkProgram(vertexShaderId, fragmentShaderId);
+        mProgram = ShaderHelper.linkProgram(vertexShaderId, fragmentShaderId);
         
         if (LoggerConfig.ON) {
-            ShaderHelper.validateProgram(m_program);
+            ShaderHelper.validateProgram(mProgram);
         }
         
-        glUseProgram(m_program);
+        glUseProgram(mProgram);
         
-        m_uMatrixLocation = glGetUniformLocation(m_program, U_MATRIX);        
-        m_aPositionLocation = glGetAttribLocation(m_program, A_POSITION);   
-        m_aColorLocation = glGetAttribLocation(m_program, A_COLOR);
-        
-        
-        m_vertexData.position(0);
-        glVertexAttribPointer(m_aPositionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, m_vertexData);    
-        glEnableVertexAttribArray(m_aPositionLocation);
+        mUMatrixLocation = glGetUniformLocation(mProgram, U_MATRIX);        
+        mAPositionLocation = glGetAttribLocation(mProgram, A_POSITION);   
+        mAColorLocation = glGetAttribLocation(mProgram, A_COLOR);
         
         
-        m_vertexData.position(POSITION_COMPONENT_COUNT);
-        glVertexAttribPointer(m_aColorLocation, COLOR_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, m_vertexData);
-        glEnableVertexAttribArray(m_aColorLocation);
+        mVertexData.position(0);
+        glVertexAttribPointer(mAPositionLocation, POSITION_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, mVertexData);    
+        glEnableVertexAttribArray(mAPositionLocation);
+        
+        
+        mVertexData.position(POSITION_COMPONENT_COUNT);
+        glVertexAttribPointer(mAColorLocation, COLOR_COMPONENT_COUNT, GL_FLOAT, false, STRIDE, mVertexData);
+        glEnableVertexAttribArray(mAColorLocation);
     }
 
     @Override
@@ -133,24 +134,13 @@ public class AirHockeyRenderer implements Renderer {
         
         glViewport(0, 0, width, height);
         
-        final float aspectRatio = width > height ?
-                (float) width / (float) height :
-                (float) height / (float) width;
+        MatrixHelper.perspectiveM(mProjectionMatrix, 45, (float) width / (float) height, 1f, 10f);
+        setIdentityM(mModelMatrix, 0);
+        translateM(mModelMatrix, 0, 0f, 0f, -2f);
         
-                if (width > height) {
-                 // Landscape
-                	orthoM(m_projectionMatrix, 0, -aspectRatio, aspectRatio, -1f, 1f, -1f, 1f);
-                } else {
-                 // Portrait or square                    
-                    orthoM(m_projectionMatrix, 0, -1f, 1f, -aspectRatio, aspectRatio, -1f, 1f);
-                }   
-                
-                
-              for ( float f : m_projectionMatrix) {
-                  Log.d(TAG, "matrix: " + f);
-              }
-              
-              Log.d(TAG, "ratio: " + aspectRatio + " " + width + " " + height);
+        final float[] tmp = new float[16];
+        multiplyMM(tmp, 0, mProjectionMatrix, 0, mModelMatrix, 0);
+        System.arraycopy(tmp, 0, mProjectionMatrix, 0, tmp.length);
                 
     }
 
@@ -163,7 +153,7 @@ public class AirHockeyRenderer implements Renderer {
         
         glClear(GL_COLOR_BUFFER_BIT);   
         
-        glUniformMatrix4fv(m_uMatrixLocation, 1, false, m_projectionMatrix, 0);
+        glUniformMatrix4fv(mUMatrixLocation, 1, false, mProjectionMatrix, 0);
         
         glDrawArrays(GL_TRIANGLE_FAN, 0, 6);        
         
